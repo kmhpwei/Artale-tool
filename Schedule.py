@@ -29,9 +29,9 @@ if uploaded_file is not None:
     def timeslots(text):
         text = str(text).replace(" ","")
         day_map = {'一':'一' , '二':'二' , '三':'三' , '四':'四' , '五':'五' , '六':'六' , '日':'日'} 
-        all_morning = [9,10,11]
-        all_afternoon = [13,14,15,16,17]
-        all_night = [18,19,20,21,22,23]
+        all_morning = [10,11]
+        all_afternoon = [13,14,15]
+        all_night = [21,22,23]
 
         result_slots = []
         parts = re.split(r'[,，]', text)
@@ -213,6 +213,7 @@ if uploaded_file is not None:
             output_text += f" - {m:<10} \n"
         
         st.code(output_text)
+
 
 
 
