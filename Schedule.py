@@ -205,12 +205,13 @@ if uploaded_file is not None:
         output_text = ""
         for m in members:
             p_id = m['ID']
-            p_lv = m.get('等級', 0) #取得等級
+            p_lv = m.get('等級', 0) # ✨ 取得等級
             if p_id not in print_tracker: print_tracker[p_id] = 0
             print_tracker[p_id] += 1
             
             runs_info = "(突襲券)" if m['max_ticket'] > 1 and print_tracker[p_id] == 2 else ""
             
+            # ✨ 排版修改：加入 Lv. 資訊
             job_display = f"({m['職業']})"
             output_text += f" - {p_id:<15} {job_display:<12} Lv.{p_lv:<4} {runs_info}\n"
         
