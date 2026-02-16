@@ -14,9 +14,10 @@ uploaded_file = st.file_uploader("請上傳 Excel 檔案 (Member.xlsx)", type=['
 
 if uploaded_file is not None:
     #==============================================================================
-    #                             讀取excel (復原為 B:F，避免報錯)
+    #                             讀取excel
     #==============================================================================
     st.info(f"正在讀取...")
+    # 維持 B:F，因為等級在 D 欄，這樣就讀得到了
     df = pd.read_excel(uploaded_file, header=0, usecols="B:F") 
     df = df.fillna('') # Excel 空值填滿
     data = df.to_dict('records')
@@ -31,7 +32,7 @@ if uploaded_file is not None:
         day_map = {'一':'一' , '二':'二' , '三':'三' , '四':'四' , '五':'五' , '六':'六' , '日':'日'} 
         all_morning = [10,11]
         all_afternoon = [13,14,15]
-        all_night = [21,22,23] # 保留你想要的吃飯時間避開設定
+        all_night = [21,22,23] # 維持你要的 21-23
 
         result_slots = []
         parts = re.split(r'[,，]', text)
@@ -59,6 +60,11 @@ if uploaded_file is not None:
     for p in data:
         p['ID'] = str(p['ID']).strip()
         p['職業'] = str(p['職業']).strip()
+        
+        # 處理等級：確保 D 欄標題是 '等級'，把 .0 去掉 (例如 141.0 -> 141)
+        raw_lv = str(p.get('等級', '')).replace('.0', '')
+        p['Level_Str'] = raw_lv if raw_lv and raw_lv != 'nan' else ''
+
         try: ticket = int(p.get('場數', 1)) 
         except: ticket = 1
         p['max_ticket'] = 2 if ticket >= 14 else 1
@@ -168,7 +174,7 @@ if uploaded_file is not None:
             elif p_role == '海盜': count_pirate += 1
 
     # ==============================================================================
-    # 7. 印出結果 (復原為無對齊格式)
+    # 7. 印出結果
     # ==============================================================================
     st.markdown("---")
     st.write("### 📅 排團結果")
@@ -202,14 +208,18 @@ if uploaded_file is not None:
             
             runs_info = "(突襲券)" if m['max_ticket'] > 1 and print_tracker[p_id] == 2 else ""
             
-            # 復原：移除所有 :<15 格式，只保留原始排版
-            job_name = f"{m['職業']}"
-            output_text += f" - {p_id} ({job_name}) {runs_info}\n"
+            # --- 修改重點 ---
+            # 直接把等級和職業接在一起，沒有任何空格
+            # 格式：(等級職業) 例如 (141主教)
+            lv_job_str = f"({m['Level_Str']}{m['職業']})"
+            
+            output_text += f" - {p_id} {lv_job_str} {runs_info}\n"
         
         for m in missing_list:
             output_text += f" - {m} \n"
         
         st.code(output_text)
+
 
 
 
