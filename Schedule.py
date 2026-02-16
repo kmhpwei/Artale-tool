@@ -14,11 +14,10 @@ uploaded_file = st.file_uploader("請上傳 Excel 檔案 (Member.xlsx)", type=['
 
 if uploaded_file is not None:
     #==============================================================================
-    #                             讀取excel (修改範圍到 G 欄)
+    #                             讀取excel (復原為 B:F，避免報錯)
     #==============================================================================
     st.info(f"正在讀取...")
-    # 修改點：usecols 改為 B:G 以讀取等級
-    df = pd.read_excel(uploaded_file, header=0, usecols="B:G") 
+    df = pd.read_excel(uploaded_file, header=0, usecols="B:F") 
     df = df.fillna('') # Excel 空值填滿
     data = df.to_dict('records')
 
@@ -32,7 +31,7 @@ if uploaded_file is not None:
         day_map = {'一':'一' , '二':'二' , '三':'三' , '四':'四' , '五':'五' , '六':'六' , '日':'日'} 
         all_morning = [10,11]
         all_afternoon = [13,14,15]
-        all_night = [21,22,23]
+        all_night = [21,22,23] # 保留你想要的吃飯時間避開設定
 
         result_slots = []
         parts = re.split(r'[,，]', text)
@@ -60,11 +59,6 @@ if uploaded_file is not None:
     for p in data:
         p['ID'] = str(p['ID']).strip()
         p['職業'] = str(p['職業']).strip()
-        
-        # ✨ 新增：抓取等級資訊
-        try: p['等級'] = int(p.get('等級', 0))
-        except: p['等級'] = 0
-
         try: ticket = int(p.get('場數', 1)) 
         except: ticket = 1
         p['max_ticket'] = 2 if ticket >= 14 else 1
@@ -81,7 +75,7 @@ if uploaded_file is not None:
     vote_rank = vote_result.most_common(5)
 
     teambox = []
-    st.write("### 開團時段")
+    st.write("### 開團時段統計")
     for time, count in vote_rank:
         st.text(f"  - {time} (共有 {count} 人有空)")
         teambox.append(time)
@@ -117,7 +111,6 @@ if uploaded_file is not None:
     entry_times = Counter()  
     entry_qualify = {}       
 
-    # Phase 1: 保底職業
     for role in necessary_jobs:
         for team_time in teambox:
             day_char = team_time[1] 
@@ -136,7 +129,6 @@ if uploaded_file is not None:
                     entry_qualify.setdefault(p_id, []).append(day_char)
                     break 
 
-    # Phase 2: 補滿
     for team_time in teambox:
         this_day_char = team_time[1]
         current_members = final_teams[team_time]
@@ -144,81 +136,7 @@ if uploaded_file is not None:
         
         reserved_slots = 0
         if '黑騎士' not in current_roles: reserved_slots += 1
-        if '弓箭手' not in current_roles: reserved_slots += 1
-        if '法師' not in current_roles: reserved_slots += 1 
-        
-        remaining_position = Max_TeamSize - reserved_slots
-        count_mage = sum(1 for m in current_members if role_type(m['職業']) == '法師')
-        count_dk = sum(1 for m in current_members if role_type(m['職業']) == '黑騎士')
-        count_archer = sum(1 for m in current_members if role_type(m['職業']) == '弓箭手')
-        count_pirate = sum(1 for m in current_members if role_type(m['職業']) == '海盜')
-        
-        for p in data:
-            if len(current_members) >= remaining_position: break
-            p_id = p['ID']
-            if entry_times[p_id] >= p['max_ticket']: continue
-            if team_time not in p['new_slots']: continue
-            if this_day_char in entry_qualify.get(p_id, []): continue 
-            
-            p_role = role_type(p['職業'])
-            if p_role == '法師' and count_mage >= Max_Magic: continue
-            if p_role == '黑騎士' and count_dk >= Max_DK: continue
-            if p_role == '弓箭手' and count_archer >= Max_Archer: continue
-            if p_role == '海盜' and count_pirate >= Max_Pirate: continue
-                
-            final_teams[team_time].append(p)
-            entry_times[p_id] += 1
-            entry_qualify.setdefault(p_id, []).append(this_day_char)
-            
-            if p_role == '法師': count_mage += 1
-            elif p_role == '黑騎士': count_dk += 1
-            elif p_role == '弓箭手': count_archer += 1
-            elif p_role == '海盜': count_pirate += 1
-
-    # ==============================================================================
-    # 7. 印出結果 (排版優化)
-    # ==============================================================================
-    st.markdown("---")
-    st.write("### 📅 排團結果")
-
-    print_tracker = {} 
-
-    for time, members in final_teams.items():
-        current_roles = [role_type(m['職業']) for m in members]
-        c_mage = current_roles.count('法師')
-        c_dk = current_roles.count('黑騎士')
-        c_arch = current_roles.count('弓箭手')
-        
-        missing_list = []
-        if '黑騎士' not in current_roles: missing_list.append("待補(火)")
-        if '弓箭手' not in current_roles: missing_list.append("待補(眼)")
-        if '法師' not in current_roles: missing_list.append("待補(法)")
-        
-        current_total = len(members) + len(missing_list)
-        remaining_slots = Max_TeamSize - current_total
-        for _ in range(remaining_slots):
-            missing_list.append("待補(輸出)")
-
-        st.subheader(f"【{time}】")
-        st.text(f"配置: 法{c_mage} / 火{c_dk} / 眼{c_arch} / 輸出")
-        
-        output_text = ""
-        for m in members:
-            p_id = m['ID']
-            p_lv = m.get('等級', 0) # ✨ 取得等級
-            if p_id not in print_tracker: print_tracker[p_id] = 0
-            print_tracker[p_id] += 1
-            
-            runs_info = "(突襲券)" if m['max_ticket'] > 1 and print_tracker[p_id] == 2 else ""
-            
-            # ✨ 排版修改：加入 Lv. 資訊
-            job_display = f"({m['職業']})"
-            output_text += f" - {p_id:<15} {job_display:<12} Lv.{p_lv:<4} {runs_info}\n"
-        
-        for m in missing_list:
-            output_text += f" - {m:<10} \n"
-        
-        st.code(output_text)
+        if '弓箭手'
 
 
 
