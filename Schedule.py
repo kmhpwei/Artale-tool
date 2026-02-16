@@ -14,10 +14,11 @@ uploaded_file = st.file_uploader("請上傳 Excel 檔案 (Member.xlsx)", type=['
 
 if uploaded_file is not None:
     #==============================================================================
-    #                             讀取excel
+    #                             讀取excel (修改範圍到 G 欄)
     #==============================================================================
     st.info(f"正在讀取...")
-    df = pd.read_excel(uploaded_file, header=0, usecols="B:F") 
+    # 修改點：usecols 改為 B:G 以讀取等級
+    df = pd.read_excel(uploaded_file, header=0, usecols="B:G") 
     df = df.fillna('') # Excel 空值填滿
     data = df.to_dict('records')
 
@@ -59,6 +60,11 @@ if uploaded_file is not None:
     for p in data:
         p['ID'] = str(p['ID']).strip()
         p['職業'] = str(p['職業']).strip()
+        
+        # ✨ 新增：抓取等級資訊
+        try: p['等級'] = int(p.get('等級', 0))
+        except: p['等級'] = 0
+
         try: ticket = int(p.get('場數', 1)) 
         except: ticket = 1
         p['max_ticket'] = 2 if ticket >= 14 else 1
@@ -199,20 +205,20 @@ if uploaded_file is not None:
         output_text = ""
         for m in members:
             p_id = m['ID']
+            p_lv = m.get('等級', 0) #取得等級
             if p_id not in print_tracker: print_tracker[p_id] = 0
             print_tracker[p_id] += 1
             
             runs_info = "(突襲券)" if m['max_ticket'] > 1 and print_tracker[p_id] == 2 else ""
-            # 中英混排對齊優化：增加寬度並固定格式
-            job_name = f"{m['職業']}"
-            id_display = p_id
-            job_display = f"({job_name})"
-            output_text += f" - {id_display} {job_display} {runs_info}\n"
+            
+            job_display = f"({m['職業']})"
+            output_text += f" - {p_id:<15} {job_display:<12} Lv.{p_lv:<4} {runs_info}\n"
         
         for m in missing_list:
             output_text += f" - {m:<10} \n"
         
         st.code(output_text)
+
 
 
 
