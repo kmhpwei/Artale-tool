@@ -136,7 +136,81 @@ if uploaded_file is not None:
         
         reserved_slots = 0
         if '黑騎士' not in current_roles: reserved_slots += 1
-        if '弓箭手'
+        if '弓箭手' not in current_roles: reserved_slots += 1
+        if '法師' not in current_roles: reserved_slots += 1 
+        
+        remaining_position = Max_TeamSize - reserved_slots
+        count_mage = sum(1 for m in current_members if role_type(m['職業']) == '法師')
+        count_dk = sum(1 for m in current_members if role_type(m['職業']) == '黑騎士')
+        count_archer = sum(1 for m in current_members if role_type(m['職業']) == '弓箭手')
+        count_pirate = sum(1 for m in current_members if role_type(m['職業']) == '海盜')
+        
+        for p in data:
+            if len(current_members) >= remaining_position: break
+            p_id = p['ID']
+            if entry_times[p_id] >= p['max_ticket']: continue
+            if team_time not in p['new_slots']: continue
+            if this_day_char in entry_qualify.get(p_id, []): continue 
+            
+            p_role = role_type(p['職業'])
+            if p_role == '法師' and count_mage >= Max_Magic: continue
+            if p_role == '黑騎士' and count_dk >= Max_DK: continue
+            if p_role == '弓箭手' and count_archer >= Max_Archer: continue
+            if p_role == '海盜' and count_pirate >= Max_Pirate: continue
+                
+            final_teams[team_time].append(p)
+            entry_times[p_id] += 1
+            entry_qualify.setdefault(p_id, []).append(this_day_char)
+            
+            if p_role == '法師': count_mage += 1
+            elif p_role == '黑騎士': count_dk += 1
+            elif p_role == '弓箭手': count_archer += 1
+            elif p_role == '海盜': count_pirate += 1
+
+    # ==============================================================================
+    # 7. 印出結果 (復原為無對齊格式)
+    # ==============================================================================
+    st.markdown("---")
+    st.write("### 📅 排團結果")
+
+    print_tracker = {} 
+
+    for time, members in final_teams.items():
+        current_roles = [role_type(m['職業']) for m in members]
+        c_mage = current_roles.count('法師')
+        c_dk = current_roles.count('黑騎士')
+        c_arch = current_roles.count('弓箭手')
+        
+        missing_list = []
+        if '黑騎士' not in current_roles: missing_list.append("待補(火)")
+        if '弓箭手' not in current_roles: missing_list.append("待補(眼)")
+        if '法師' not in current_roles: missing_list.append("待補(法)")
+        
+        current_total = len(members) + len(missing_list)
+        remaining_slots = Max_TeamSize - current_total
+        for _ in range(remaining_slots):
+            missing_list.append("待補(輸出)")
+
+        st.subheader(f"【{time}】")
+        st.text(f"配置: 法{c_mage} / 火{c_dk} / 眼{c_arch} / 輸出")
+        
+        output_text = ""
+        for m in members:
+            p_id = m['ID']
+            if p_id not in print_tracker: print_tracker[p_id] = 0
+            print_tracker[p_id] += 1
+            
+            runs_info = "(突襲券)" if m['max_ticket'] > 1 and print_tracker[p_id] == 2 else ""
+            
+            # 復原：移除所有 :<15 格式，只保留原始排版
+            job_name = f"{m['職業']}"
+            output_text += f" - {p_id} ({job_name}) {runs_info}\n"
+        
+        for m in missing_list:
+            output_text += f" - {m} \n"
+        
+        st.code(output_text)
+
 
 
 
