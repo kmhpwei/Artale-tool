@@ -47,7 +47,6 @@ if uploaded_file is not None:
                 if "午" in part: catch_hour.extend(all_afternoon)
                 if "晚" in part: catch_hour.extend(all_night)
                 
-                # 保底邏輯
                 if not catch_hour: 
                     catch_hour.extend(all_night)
 
@@ -78,7 +77,7 @@ if uploaded_file is not None:
         votebox.extend(p['new_slots'])
 
     # ==============================================================================
-    #                             定義職業與規則 (✨為了動態判斷，移到這裡)
+    #                             定義職業
     # ==============================================================================
     Jobs_Magic = ['主教', '冰雷', '火毒']       
     Jobs_DK = ['黑騎士']                      
@@ -101,42 +100,30 @@ if uploaded_file is not None:
         return '一般輸出'
 
     #==============================================================================
-    #                             決定開團時間 (✨重大修改：動態計算開團數)
+    #                             決定開團時間
     #==============================================================================
     vote_result = Counter(votebox)
     vote_rank = vote_result.most_common(10) 
 
     teambox = []
-    st.write("### 開團時段統計")
+    st.write("### 開團時段")
     
     MAX_TOTAL_TEAMS = 6
     
     for time, count in vote_rank:
         if len(teambox) >= MAX_TOTAL_TEAMS: break
         
-        # --- ✨ 動態判斷邏輯 ---
-        # 1. 先找出這個時段有哪些人
         people_in_this_time = [p for p in data if time in p['new_slots']]
         
-        # 2. 計算這些人的職業構成
         c_mage = sum(1 for p in people_in_this_time if role_type(p['職業']) == '法師')
         c_dk = sum(1 for p in people_in_this_time if role_type(p['職業']) == '黑騎士')
         
-        # 3. 計算需要幾團才能塞下這些人
-        # 規則 A: 人數滿 6 人要開新團 -> (人數 + 5) // 6
         teams_by_count = (count + 5) // 6
-        
-        # 規則 B: 法師滿 2 人要開新團 -> (法師 + 1) // 2
         teams_by_mage = (c_mage + 1) // 2
+        teams_by_dk = c_dk 
         
-        # 規則 C: 黑騎滿 1 人要開新團 -> (黑騎) // 1
-        teams_by_dk = c_dk # 1個黑騎1團, 2個黑騎就要2團
-        
-        # 取最大值，決定最終開團數 (至少開1團)
         teams_to_open = max(1, teams_by_count, teams_by_mage, teams_by_dk)
         
-        # ------------------------
-
         for i in range(teams_to_open):
             if len(teambox) >= MAX_TOTAL_TEAMS: break
             
@@ -148,10 +135,10 @@ if uploaded_file is not None:
             teambox.append(team_name)
             
         if teams_to_open > 0:
-            st.text(f"  - {time} (共有 {count} 人, 含法{c_mage}/黑{c_dk}) -> 因應配置需開 {teams_to_open} 團")
+            st.text(f"  - {time} (共有 {count} 人有空)")
 
     # ==============================================================================
-    #                             人員分配邏輯 (維持強盜邏輯：塞滿一團再開下一團)
+    #                             人員分配邏輯
     # ==============================================================================
     data.sort(key=lambda x: x['first'])
     final_teams = {name: [] for name in teambox}
@@ -161,15 +148,10 @@ if uploaded_file is not None:
     def get_raw_time(t):
         return t.split(' #')[0]
 
-    # 依序處理每一團 (Team #1 -> Team #2 -> ...)
-    # 這樣確保前面滿了(或職業滿了)才會溢出到後面
     for team_time in teambox:
         raw_time_key = get_raw_time(team_time)
         day_char = raw_time_key[1]
         
-        # ---------------------------------------------------------
-        # 步驟 1: 先為「這一團」找保底 (法/黑/弓)
-        # ---------------------------------------------------------
         for role in necessary_jobs:
             current_members = final_teams[team_time]
             if any(role_type(m['職業']) == role for m in current_members): continue
@@ -186,9 +168,6 @@ if uploaded_file is not None:
                     entry_qualify.setdefault(p_id, []).append(day_char)
                     break 
         
-        # ---------------------------------------------------------
-        # 步驟 2: 把「這一團」補滿到 6 人 (或職業上限)
-        # ---------------------------------------------------------
         current_members = final_teams[team_time]
         current_roles = [role_type(m['職業']) for m in current_members]
         
@@ -213,7 +192,6 @@ if uploaded_file is not None:
             if day_char in entry_qualify.get(p_id, []): continue 
             
             p_role = role_type(p['職業'])
-            # 檢查職業上限 (如果這團法師滿了，這個法師就會被跳過，流到下一團)
             if p_role == '法師' and count_mage >= Max_Magic: continue
             if p_role == '黑騎士' and count_dk >= Max_DK: continue
             if p_role == '弓箭手' and count_archer >= Max_Archer: continue
@@ -270,8 +248,6 @@ if uploaded_file is not None:
             output_text += f" - {m} \n"
         
         st.code(output_text)
-
-
 
 
 
