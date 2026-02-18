@@ -113,17 +113,21 @@ if uploaded_file is not None:
     for time, count in vote_rank:
         if len(teambox) >= MAX_TOTAL_TEAMS: break
         
+        # 判斷人數與職業是否需要開新團
         people_in_this_time = [p for p in data if time in p['new_slots']]
-        
         c_mage = sum(1 for p in people_in_this_time if role_type(p['職業']) == '法師')
         c_dk = sum(1 for p in people_in_this_time if role_type(p['職業']) == '黑騎士')
         
-        teams_by_count = (count + 5) // 6
-        teams_by_mage = (c_mage + 1) // 2
-        teams_by_dk = c_dk 
+        teams_to_open = 1
         
-        teams_to_open = max(1, teams_by_count, teams_by_mage, teams_by_dk)
+        # 判斷邏輯: 人數>6 或 法師>2 或 黑騎>1 就要開第2團
+        if count > 6 or c_mage > 2 or c_dk > 1:
+            teams_to_open = 2
         
+        # 判斷邏輯: 人數>12 或 法師>4 或 黑騎>2 就要開第3團
+        if count > 12 or c_mage > 4 or c_dk > 2:
+            teams_to_open = 3
+            
         for i in range(teams_to_open):
             if len(teambox) >= MAX_TOTAL_TEAMS: break
             
@@ -215,6 +219,9 @@ if uploaded_file is not None:
     print_tracker = {} 
 
     for time, members in final_teams.items():
+        # 如果這團沒有人，就不顯示
+        if len(members) == 0: continue
+
         current_roles = [role_type(m['職業']) for m in members]
         c_mage = current_roles.count('法師')
         c_dk = current_roles.count('黑騎士')
@@ -233,25 +240,7 @@ if uploaded_file is not None:
         st.subheader(f"【{time}】")
         st.text(f"配置: 法{c_mage} / 火{c_dk} / 眼{c_arch} / 輸出")
         
-        output_text = ""
-        for m in members:
-            p_id = m['ID']
-            if p_id not in print_tracker: print_tracker[p_id] = 0
-            print_tracker[p_id] += 1
-            
-            runs_info = "(突襲券)" if m['max_ticket'] > 1 and print_tracker[p_id] == 2 else ""
-            
-            lv_job_str = f"({m['Level_Str']}{m['職業']})"
-            output_text += f" - {p_id} {lv_job_str} {runs_info}\n"
-        
-        for m in missing_list:
-            output_text += f" - {m} \n"
-        
-        st.code(output_text)
-
-
-
-
+        output_text
 
 
 
