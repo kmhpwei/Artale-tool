@@ -106,7 +106,7 @@ if uploaded_file is not None:
     vote_rank = vote_result.most_common(10) 
 
     teambox = []
-    # 這裡移除了原本的 st.write("### 開團時段") 和列印文字，只保留後台計算
+    st.write("### 開團時段")
     
     MAX_TOTAL_TEAMS = 6
     
@@ -134,6 +134,9 @@ if uploaded_file is not None:
                 team_name = f"{time}"
             
             teambox.append(team_name)
+        
+        if teams_to_open > 0:
+            st.text(f" - {time} (共有 {count} 人) -> 預計開 {teams_to_open} 團")
 
     # ==============================================================================
     #                             人員分配邏輯
@@ -213,7 +216,6 @@ if uploaded_file is not None:
     print_tracker = {} 
 
     for time, members in final_teams.items():
-        # ✨ 重點修正：如果這團分配完沒有人，就隱藏不顯示
         if len(members) == 0: continue
 
         current_roles = [role_type(m['職業']) for m in members]
@@ -249,6 +251,7 @@ if uploaded_file is not None:
             output_text += f" - {m} \n"
         
         st.code(output_text)
+
 
 
 
