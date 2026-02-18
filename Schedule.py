@@ -143,12 +143,12 @@ if uploaded_file is not None:
     def get_raw_time(t):
         return t.split(' #')[0]
 
-    # Phase 1: 保底職業分配 (確保每一團都有基礎職業)
-    for role in necessary_jobs:
-        for team_time in teambox:
-            raw_time_key = get_raw_time(team_time)
-            day_char = raw_time_key[1]
-            
+    for team_time in teambox:
+        raw_time_key = get_raw_time(team_time)
+        day_char = raw_time_key[1]
+        
+        # 該團優先找保底
+        for role in necessary_jobs:
             current_members = final_teams[team_time]
             if any(role_type(m['職業']) == role for m in current_members): continue
             
@@ -164,11 +164,7 @@ if uploaded_file is not None:
                     entry_qualify.setdefault(p_id, []).append(day_char)
                     break 
 
-    # Phase 2: 填滿隊伍 (優先補滿第一團，再補第二團)
-    for team_time in teambox:
-        raw_time_key = get_raw_time(team_time)
-        this_day_char = raw_time_key[1]
-        
+        # 該團補滿人
         current_members = final_teams[team_time]
         current_roles = [role_type(m['職業']) for m in current_members]
         
@@ -189,7 +185,7 @@ if uploaded_file is not None:
             p_id = p['ID']
             if entry_times[p_id] >= p['max_ticket']: continue
             if raw_time_key not in p['new_slots']: continue
-            if this_day_char in entry_qualify.get(p_id, []): continue 
+            if day_char in entry_qualify.get(p_id, []): continue 
             
             p_role = role_type(p['職業'])
             if p_role == '法師' and count_mage >= Max_Magic: continue
@@ -199,7 +195,7 @@ if uploaded_file is not None:
                 
             final_teams[team_time].append(p)
             entry_times[p_id] += 1
-            entry_qualify.setdefault(p_id, []).append(this_day_char)
+            entry_qualify.setdefault(p_id, []).append(day_char)
             
             if p_role == '法師': count_mage += 1
             elif p_role == '黑騎士': count_dk += 1
