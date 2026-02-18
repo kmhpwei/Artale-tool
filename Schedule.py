@@ -106,25 +106,22 @@ if uploaded_file is not None:
     vote_rank = vote_result.most_common(10) 
 
     teambox = []
-    st.write("### 開團時段")
+    # 這裡移除了原本的 st.write("### 開團時段") 和列印文字，只保留後台計算
     
     MAX_TOTAL_TEAMS = 6
     
     for time, count in vote_rank:
         if len(teambox) >= MAX_TOTAL_TEAMS: break
         
-        # 判斷人數與職業是否需要開新團
         people_in_this_time = [p for p in data if time in p['new_slots']]
         c_mage = sum(1 for p in people_in_this_time if role_type(p['職業']) == '法師')
         c_dk = sum(1 for p in people_in_this_time if role_type(p['職業']) == '黑騎士')
         
         teams_to_open = 1
         
-        # 判斷邏輯: 人數>6 或 法師>2 或 黑騎>1 就要開第2團
         if count > 6 or c_mage > 2 or c_dk > 1:
             teams_to_open = 2
         
-        # 判斷邏輯: 人數>12 或 法師>4 或 黑騎>2 就要開第3團
         if count > 12 or c_mage > 4 or c_dk > 2:
             teams_to_open = 3
             
@@ -137,9 +134,6 @@ if uploaded_file is not None:
                 team_name = f"{time}"
             
             teambox.append(team_name)
-            
-        if teams_to_open > 0:
-            st.text(f"  - {time} (共有 {count} 人有空)")
 
     # ==============================================================================
     #                             人員分配邏輯
@@ -219,7 +213,7 @@ if uploaded_file is not None:
     print_tracker = {} 
 
     for time, members in final_teams.items():
-        # 如果這團沒有人，就不顯示
+        # ✨ 重點修正：如果這團分配完沒有人，就隱藏不顯示
         if len(members) == 0: continue
 
         current_roles = [role_type(m['職業']) for m in members]
