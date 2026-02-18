@@ -240,7 +240,21 @@ if uploaded_file is not None:
         st.subheader(f"【{time}】")
         st.text(f"配置: 法{c_mage} / 火{c_dk} / 眼{c_arch} / 輸出")
         
-        output_text
+        output_text = ""
+        for m in members:
+            p_id = m['ID']
+            if p_id not in print_tracker: print_tracker[p_id] = 0
+            print_tracker[p_id] += 1
+            
+            runs_info = "(突襲券)" if m['max_ticket'] > 1 and print_tracker[p_id] == 2 else ""
+            
+            lv_job_str = f"({m['Level_Str']}{m['職業']})"
+            output_text += f" - {p_id} {lv_job_str} {runs_info}\n"
+        
+        for m in missing_list:
+            output_text += f" - {m} \n"
+        
+        st.code(output_text)
 
 
 
