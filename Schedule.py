@@ -35,7 +35,7 @@ if uploaded_file is not None:
         all_night = [21,22,23] # 維持你要的 21-23
 
         result_slots = []
-        parts = re.split(r'[,，]', text)
+        parts = re.split(r'[,，、]', text)
         for part in parts:
             if not part: continue
             catch_day = []
@@ -87,7 +87,7 @@ if uploaded_file is not None:
         teambox.append(time)
 
     # ==============================================================================
-    #                             定義職業與規則
+    #                             定義職業
     # ==============================================================================
     Jobs_Magic = ['主教', '冰雷', '火毒']       
     Jobs_DK = ['黑騎士']                      
@@ -110,7 +110,7 @@ if uploaded_file is not None:
         return '一般輸出'
 
     # ==============================================================================
-    #                             人員分配邏輯
+    #                             人員分配
     # ==============================================================================
     data.sort(key=lambda x: x['first'])
     final_teams = {name: [] for name in teambox}
@@ -219,6 +219,7 @@ if uploaded_file is not None:
             output_text += f" - {m} \n"
         
         st.code(output_text)
+
 
 
 
