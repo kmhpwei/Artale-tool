@@ -17,8 +17,8 @@ if uploaded_file is not None:
     #                             讀取excel
     #==============================================================================
     st.info(f"正在讀取...")
-    # 修改 1: 範圍改成 B:G 才能讀到等級
-    df = pd.read_excel(uploaded_file, header=0, usecols="B:G") 
+    # 維持 B:F，因為等級在 D 欄，這樣就讀得到了
+    df = pd.read_excel(uploaded_file, header=0, usecols="B:F") 
     df = df.fillna('') # Excel 空值填滿
     data = df.to_dict('records')
 
@@ -35,7 +35,7 @@ if uploaded_file is not None:
         all_night = [21,22,23] # 維持你要的 21-23
 
         result_slots = []
-        parts = re.split(r'[,，]', text)
+        parts = re.split(r'[,，、]', text)
         for part in parts:
             if not part: continue
             catch_day = []
@@ -47,6 +47,11 @@ if uploaded_file is not None:
                 if "早" in part: catch_hour.extend(all_morning)
                 if "午" in part: catch_hour.extend(all_afternoon)
                 if "晚" in part: catch_hour.extend(all_night)
+                
+                # 保底邏輯
+                if not catch_hour: 
+                    catch_hour.extend(all_night)
+
             catch_hour = sorted(list(set(catch_hour)))
             for d in catch_day:
                 for h in catch_hour:
@@ -61,12 +66,9 @@ if uploaded_file is not None:
         p['ID'] = str(p['ID']).strip()
         p['職業'] = str(p['職業']).strip()
         
-        # 修改 2: 抓取等級 (如果沒填預設為空字串)
-        try: 
-            lv_val = int(p.get('等級', 0))
-            p['等級'] = str(lv_val) if lv_val > 0 else ''
-        except: 
-            p['等級'] = ''
+        # 處理等級：確保 D 欄標題是 '等級'，把 .0 去掉 (例如 141.0 -> 141)
+        raw_lv = str(p.get('等級', '')).replace('.0', '')
+        p['Level_Str'] = raw_lv if raw_lv and raw_lv != 'nan' else ''
 
         try: ticket = int(p.get('場數', 1)) 
         except: ticket = 1
@@ -81,16 +83,39 @@ if uploaded_file is not None:
     #                             決定開團時間
     #==============================================================================
     vote_result = Counter(votebox)
-    vote_rank = vote_result.most_common(5)
+    vote_rank = vote_result.most_common(10) # 抓前10名篩選
 
     teambox = []
     st.write("### 開團時段統計")
+    
+    # 限制顯示總團數，避免版面過長
+    MAX_TOTAL_TEAMS = 6
+    
     for time, count in vote_rank:
-        st.text(f"  - {time} (共有 {count} 人有空)")
-        teambox.append(time)
+        if len(teambox) >= MAX_TOTAL_TEAMS: break
+        
+        # 邏輯修改：決定開幾團 (滿6人且第二團至少2人=8人)
+        teams_to_open = 0
+        if count >= 4: teams_to_open = 1
+        if count >= 8: teams_to_open = 2  # 6+2
+        if count >= 14: teams_to_open = 3 # 6+6+2
+        
+        for i in range(teams_to_open):
+            if len(teambox) >= MAX_TOTAL_TEAMS: break
+            
+            # 如果開多團，加上編號區隔
+            if teams_to_open > 1:
+                team_name = f"{time} #{i+1}"
+            else:
+                team_name = f"{time}"
+            
+            teambox.append(team_name)
+            
+        if teams_to_open > 0:
+            st.text(f"  - {time} (共有 {count} 人有空) -> 開 {teams_to_open} 團")
 
     # ==============================================================================
-    #                             定義職業與規則
+    #                             定義職業
     # ==============================================================================
     Jobs_Magic = ['主教', '冰雷', '火毒']       
     Jobs_DK = ['黑騎士']                      
@@ -113,7 +138,7 @@ if uploaded_file is not None:
         return '一般輸出'
 
     # ==============================================================================
-    #                             人員分配邏輯
+    #                             人員分配
     # ==============================================================================
     data.sort(key=lambda x: x['first'])
     final_teams = {name: [] for name in teambox}
@@ -122,14 +147,17 @@ if uploaded_file is not None:
 
     for role in necessary_jobs:
         for team_time in teambox:
-            day_char = team_time[1] 
+            # 去除編號 #1, #2 以比對原始時間
+            raw_time_key = team_time.split(' #')[0]
+            day_char = raw_time_key[1] 
+            
             current_members = final_teams[team_time]
             if any(role_type(m['職業']) == role for m in current_members): continue 
                 
             for p in data:
                 p_id = p['ID']
                 if entry_times[p_id] >= p['max_ticket']: continue 
-                if team_time not in p['new_slots']: continue
+                if raw_time_key not in p['new_slots']: continue
                 if day_char in entry_qualify.get(p_id, []): continue 
                 
                 if role_type(p['職業']) == role:
@@ -139,7 +167,10 @@ if uploaded_file is not None:
                     break 
 
     for team_time in teambox:
-        this_day_char = team_time[1]
+        # 去除編號 #1, #2 以比對原始時間
+        raw_time_key = team_time.split(' #')[0]
+        this_day_char = raw_time_key[1]
+        
         current_members = final_teams[team_time]
         current_roles = [role_type(m['職業']) for m in current_members]
         
@@ -158,7 +189,7 @@ if uploaded_file is not None:
             if len(current_members) >= remaining_position: break
             p_id = p['ID']
             if entry_times[p_id] >= p['max_ticket']: continue
-            if team_time not in p['new_slots']: continue
+            if raw_time_key not in p['new_slots']: continue
             if this_day_char in entry_qualify.get(p_id, []): continue 
             
             p_role = role_type(p['職業'])
@@ -211,19 +242,15 @@ if uploaded_file is not None:
             
             runs_info = "(突襲券)" if m['max_ticket'] > 1 and print_tracker[p_id] == 2 else ""
             
-            # 修改 3: 顯示格式改成 (141主教)
-            # 這裡完全沒用任何對齊空格，直接串接字串
-            p_lv = m['等級'] # e.g. "141"
-            job_name = m['職業'] # e.g. "主教"
+           
+            lv_job_str = f"({m['Level_Str']}{m['職業']})"
             
-            # 組合字串：ID (等級職業) 券
-            output_text += f" - {p_id} ({p_lv}{job_name}) {runs_info}\n"
+            output_text += f" - {p_id} {lv_job_str} {runs_info}\n"
         
         for m in missing_list:
             output_text += f" - {m} \n"
         
         st.code(output_text)
-
 
 
 
