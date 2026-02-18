@@ -96,7 +96,7 @@ if uploaded_file is not None:
         
         # 邏輯修改：決定開幾團 (滿6人且第二團至少2人=8人)
         teams_to_open = 0
-        if count >= 4: teams_to_open = 1
+        if count >= 1: teams_to_open = 1
         if count >= 8: teams_to_open = 2  # 6+2
         if count >= 14: teams_to_open = 3 # 6+6+2
         
@@ -251,6 +251,7 @@ if uploaded_file is not None:
             output_text += f" - {m} \n"
         
         st.code(output_text)
+
 
 
 
