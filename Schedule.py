@@ -17,7 +17,6 @@ if uploaded_file is not None:
     #                             讀取excel
     #==============================================================================
     st.info(f"正在讀取...")
-    # 維持 B:F，因為等級在 D 欄，這樣就讀得到了
     df = pd.read_excel(uploaded_file, header=0, usecols="B:F") 
     df = df.fillna('') # Excel 空值填滿
     data = df.to_dict('records')
@@ -32,7 +31,7 @@ if uploaded_file is not None:
         day_map = {'一':'一' , '二':'二' , '三':'三' , '四':'四' , '五':'五' , '六':'六' , '日':'日'} 
         all_morning = [10,11]
         all_afternoon = [13,14,15]
-        all_night = [21,22,23] # 維持你要的 21-23
+        all_night = [21,22,23] 
 
         result_slots = []
         parts = re.split(r'[,，、]', text)
@@ -66,7 +65,6 @@ if uploaded_file is not None:
         p['ID'] = str(p['ID']).strip()
         p['職業'] = str(p['職業']).strip()
         
-        # 處理等級：確保 D 欄標題是 '等級'，把 .0 去掉 (例如 141.0 -> 141)
         raw_lv = str(p.get('等級', '')).replace('.0', '')
         p['Level_Str'] = raw_lv if raw_lv and raw_lv != 'nan' else ''
 
@@ -83,27 +81,24 @@ if uploaded_file is not None:
     #                             決定開團時間
     #==============================================================================
     vote_result = Counter(votebox)
-    vote_rank = vote_result.most_common(10) # 抓前10名篩選
+    vote_rank = vote_result.most_common(10) 
 
     teambox = []
     st.write("### 開團時段統計")
     
-    # 限制顯示總團數，避免版面過長
     MAX_TOTAL_TEAMS = 6
     
     for time, count in vote_rank:
         if len(teambox) >= MAX_TOTAL_TEAMS: break
         
-        # 邏輯修改：決定開幾團 (滿6人且第二團至少2人=8人)
         teams_to_open = 0
         if count >= 1: teams_to_open = 1
-        if count >= 8: teams_to_open = 2  # 6+2
-        if count >= 14: teams_to_open = 3 # 6+6+2
+        if count >= 8: teams_to_open = 2
+        if count >= 14: teams_to_open = 3 
         
         for i in range(teams_to_open):
             if len(teambox) >= MAX_TOTAL_TEAMS: break
             
-            # 如果開多團，加上編號區隔
             if teams_to_open > 1:
                 team_name = f"{time} #{i+1}"
             else:
@@ -138,22 +133,25 @@ if uploaded_file is not None:
         return '一般輸出'
 
     # ==============================================================================
-    #                             人員分配
+    #                             人員分配邏輯
     # ==============================================================================
     data.sort(key=lambda x: x['first'])
     final_teams = {name: [] for name in teambox}
     entry_times = Counter()  
     entry_qualify = {}       
 
+    def get_raw_time(t):
+        return t.split(' #')[0]
+
+    # Phase 1: 保底職業分配 (確保每一團都有基礎職業)
     for role in necessary_jobs:
         for team_time in teambox:
-            # 去除編號 #1, #2 以比對原始時間
-            raw_time_key = team_time.split(' #')[0]
-            day_char = raw_time_key[1] 
+            raw_time_key = get_raw_time(team_time)
+            day_char = raw_time_key[1]
             
             current_members = final_teams[team_time]
-            if any(role_type(m['職業']) == role for m in current_members): continue 
-                
+            if any(role_type(m['職業']) == role for m in current_members): continue
+            
             for p in data:
                 p_id = p['ID']
                 if entry_times[p_id] >= p['max_ticket']: continue 
@@ -166,9 +164,9 @@ if uploaded_file is not None:
                     entry_qualify.setdefault(p_id, []).append(day_char)
                     break 
 
+    # Phase 2: 填滿隊伍 (優先補滿第一團，再補第二團)
     for team_time in teambox:
-        # 去除編號 #1, #2 以比對原始時間
-        raw_time_key = team_time.split(' #')[0]
+        raw_time_key = get_raw_time(team_time)
         this_day_char = raw_time_key[1]
         
         current_members = final_teams[team_time]
@@ -186,7 +184,8 @@ if uploaded_file is not None:
         count_pirate = sum(1 for m in current_members if role_type(m['職業']) == '海盜')
         
         for p in data:
-            if len(current_members) >= remaining_position: break
+            if len(final_teams[team_time]) >= remaining_position: break
+            
             p_id = p['ID']
             if entry_times[p_id] >= p['max_ticket']: continue
             if raw_time_key not in p['new_slots']: continue
@@ -242,17 +241,13 @@ if uploaded_file is not None:
             
             runs_info = "(突襲券)" if m['max_ticket'] > 1 and print_tracker[p_id] == 2 else ""
             
-           
             lv_job_str = f"({m['Level_Str']}{m['職業']})"
-            
             output_text += f" - {p_id} {lv_job_str} {runs_info}\n"
         
         for m in missing_list:
             output_text += f" - {m} \n"
         
         st.code(output_text)
-
-
 
 
 
